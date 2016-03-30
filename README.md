@@ -1,52 +1,73 @@
-CAS Overlay Template
+Docker CAS Test Image
 ============================
 
-Generic CAS maven war overlay to exercise the latest versions of CAS. This overlay could be freely used as a starting template for local CAS maven war overlays. The CAS services management overlay is available [here](https://github.com/Jasig/cas-services-management-overlay).
-
-# Versions
-```xml
-<cas.version>4.2.0</cas.version>
-```
+Docker image used to launch a sample CAS instance for test purpose (for example when developing an application that will require a CAS server).
 
 # Requirements
-* JDK 1.7+
-
-# Configuration
-
-The `etc` directory contains the configuration files that need to be copied to `/etc/cas`.
-
-Current files are:
-
-* `cas.properties`
-* `log4j2.xml`
+* [Docker](https://www.docker.com/)
 
 # Build
 
 ```bash
-mvnw clean package
+git clone https://github.com/iorga-group/docker-cas-test.git
+cd docker-cas-test
+docker build -t cas-test ./
 ```
 
-or
+# Launch
 
 ```bash
-mvnw.bat clean package
+docker run -it --rm -p "8080:8080" -p "8443:8443" --hostname sso.mycompany.com cas-test
 ```
 
-# Deployment
+Associate `sso.mycompany.com` with your localhost, and CAS will be available at:
 
-## Embedded Jetty
+* `http://sso.mycompany.com:8080/cas`
+* `https://sso.mycompany.com:8443/cas`
 
-* Create a Java keystore at `/etc/cas/jetty/thekeystore` with the password `changeit`.
-* Import your CAS server certificate inside this keystore.
+## Parameters
+
+You can use `CAS_CONFIG` docker environment variable to customize the users / services available in that CAS instance.
+
+This variable must be a JSON string with this format:
+
+```
+{
+  users: [
+    {
+      userName: string,
+      password: string,
+      acceptAnyPassword: boolean (default to false),
+      attributes: object (which will be sent as CAS attributes)
+    }
+  ],
+  services: [
+    {
+      id: number (optional),
+      url: string (pattern - java style - used to match a service name),
+      allowedUserNames: array of string (containing userNames allowed to access this service),
+      attributesOverridesByUserName: object (which key corresponds to the userName for whom you want to override attributes, and value is an object: the attributes to override and their values),
+      logoutUrl: string (url called after CAS logout, optional),
+      acceptAnyUserName: boolean (default to true if allowedUserNames is empty, false otherwise)
+    }
+  ],
+  acceptAnyLoginAndPassword: boolean (default to true)
+  acceptAnyService: boolean (default to true)
+}
+```
+
+Here is an example:
 
 ```bash
-mvnw jetty:run-forked
+docker run -it --rm -p "8080:8080" -p "8443:8443" --hostname sso.mycompany.com -e "CAS_CONFIG={users:[{userName: 'test', acceptAnyPassword: true, attributes: {test: 'ok'}}]}" cas-test
 ```
 
-CAS will be available at:
+## Optimization
 
-* `http://cas.server.name:8080/cas`
-* `https://cas.server.name:8443/cas`
+You can launch the instances faster using sharing the `/root/.m2` directory with the host.
 
-## External
-Deploy resultant `target/cas.war` to a Servlet container of choice.
+Example:
+
+```bash
+docker run -it --rm -p "8080:8080" -p "8443:8443" -v /home/myuser/.m2:/root/.m2 --hostname sso.mycompany.com cas-test
+```
